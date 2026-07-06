@@ -1,4 +1,4 @@
-name: Local Docker Deploy
+name: service-now
 
 on:
   push:
@@ -17,11 +17,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Copy Local .env
+        run: |
+          cp /home/shubhamrwt/service-now/backend/.env .env
+
       - name: Show Docker Version
         run: docker --version
 
       - name: Stop Containers
-        run: docker compose down || true
+        run: docker compose -f docker-compose.yml down || true
 
       - name: Build and Start
         run: docker compose -f docker-compose.yml up -d --build

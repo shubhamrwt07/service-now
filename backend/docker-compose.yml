@@ -9,8 +9,7 @@ services:
     restart: always
     depends_on:
       - postgres
-    env_file:
-      - .env
+    
 
   postgres:
     image: postgres:16
