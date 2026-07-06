@@ -16,7 +16,7 @@ app.post('/api/tables', async (req, res) => {
 
   if (!instanceUrl) return res.status(400).json({ error: 'Missing instance URL' });
 
-  try {
+  try {frontend/Dockerfile
     let headers = {
       'Accept': 'application/json'
     };
