@@ -1,4 +1,4 @@
-name: service-now
+name: Local Deploy
 
 on:
   push:
@@ -9,26 +9,19 @@ jobs:
   deploy:
     runs-on: self-hosted
 
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Copy Local .env
+      - name: Copy Backend .env
+        run: cp /home/shubhamrwt/service-now/backend/.env backend/.env
+
+      - name: Copy Frontend .env
+        run: cp /home/shubhamrwt/service-now/frontend/.env frontend/.env
+
+      - name: Deploy
         run: |
-          cp /home/shubhamrwt/service-now/backend/.env .env
+          docker compose -f docker-compose.yml down
+          docker compose -f docker-compose.yml up -d --build
 
-      - name: Show Docker Version
-        run: docker --version
-
-      - name: Stop Containers
-        run: docker compose -f docker-compose.yml down || true
-
-      - name: Build and Start
-        run: docker compose -f docker-compose.yml up -d --build
-
-      - name: Show Running Containers
+      - name: Verify
         run: docker ps
