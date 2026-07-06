@@ -24,7 +24,7 @@ jobs:
         run: docker compose down || true
 
       - name: Build and Start
-        run: docker-compose -f docker-compose.yml  up -d --build
+        run: docker compose -f docker-compose.yml up -d --build
 
       - name: Show Running Containers
         run: docker ps
