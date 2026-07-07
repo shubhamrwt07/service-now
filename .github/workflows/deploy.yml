@@ -1,4 +1,4 @@
-name: Local Deploy
+name: service-now CI/CD
 
 on:
   push:
