@@ -172,11 +172,22 @@ log "${BLUE}         Stopping existing ${TARGET_ENV} containers...${NC}"
 docker compose -f "${COMPOSE_FILE}" down --remove-orphans 2>/dev/null || true
 # "|| true" = agar containers nahi chal rahi toh bhi error mat do
 
-# .env file copy karo (server pe actual secrets hain)
-if [ -f "${SCRIPT_DIR}/backend/.env" ]; then
-    log "${BLUE}         Backend .env found ✅${NC}"
+# .env file check karo — 2 locations check karo:
+# 1. $GITHUB_WORKSPACE/backend/.env (GitHub Actions ne pehle se copy ki)
+# 2. Permanent secrets location (manual deploy ke liye)
+SECRETS_ENV="/home/shubhamrwt/service-now/secrets/backend.env"
+WORK_ENV="${SCRIPT_DIR}/backend/.env"
+
+if [ -f "${WORK_ENV}" ]; then
+    log "${BLUE}         Backend .env found in working directory ✅${NC}"
+elif [ -f "${SECRETS_ENV}" ]; then
+    # GitHub Actions ne copy nahi ki — manual run hai
+    # Permanent location se copy karo
+    cp "${SECRETS_ENV}" "${WORK_ENV}"
+    log "${BLUE}         Backend .env copied from secrets location ✅${NC}"
 else
-    log "${RED}❌ backend/.env not found! Create it from .env.example${NC}"
+    log "${RED}❌ backend/.env not found!${NC}"
+    log "${RED}   Fix: cp /path/to/.env ${SECRETS_ENV}${NC}"
     exit 1
 fi
 

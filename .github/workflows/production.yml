@@ -87,9 +87,16 @@ jobs:
       # --------------------------------------------------------
       - name: 🔑 Setup Environment
         run: |
-          cp /home/shubhamrwt/service-now/backend/.env backend/.env
+          SECRETS_ENV="/home/shubhamrwt/service-now/secrets/backend.env"
+          
+          if [ ! -f "${SECRETS_ENV}" ]; then
+            echo "❌ Secrets file not found: ${SECRETS_ENV}"
+            exit 1
+          fi
+          
+          cp "${SECRETS_ENV}" "${GITHUB_WORKSPACE}/backend/.env"
           chmod +x deploy.sh health-check.sh nginx/switch.sh
-          echo "✅ Environment ready"
+          echo "✅ Environment ready (${SECRETS_ENV})"
 
       # --------------------------------------------------------
       # Deploy with optional force flag

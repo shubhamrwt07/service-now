@@ -141,3 +141,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Secrets directory — actual .env files (never commit to Git!)
+secrets/
+deploy.log

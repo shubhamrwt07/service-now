@@ -41,13 +41,23 @@ jobs:
       # STEP 2: Backend .env copy karo
       # --------------------------------------------------------
       # .env Git mein nahi hoti (security)
-      # Server pe pehle se save karke rakhte hain
+      # /home/shubhamrwt/service-now/secrets/backend.env = permanent location
+      # Runner ka working dir alag hota hai, isliye hardcoded permanent path use karo
+      # $GITHUB_WORKSPACE = runner ka actual checkout path
       - name: 🔑 Setup Backend Environment
         run: |
-          # Server pe /home/shubhamrwt/service-now/backend/.env pehle se hai
-          # Usse project mein copy karo
-          cp /home/shubhamrwt/service-now/backend/.env backend/.env
-          echo "✅ Backend .env configured"
+          # Permanent secrets location se copy karo
+          # Ye path kabhi nahi badlega — runner directory change ho toh bhi ye safe hai
+          SECRETS_ENV="/home/shubhamrwt/service-now/secrets/backend.env"
+          
+          if [ ! -f "${SECRETS_ENV}" ]; then
+            echo "❌ Secrets file not found: ${SECRETS_ENV}"
+            echo "Run: cp /path/to/.env /home/shubhamrwt/service-now/secrets/backend.env"
+            exit 1
+          fi
+          
+          cp "${SECRETS_ENV}" "${GITHUB_WORKSPACE}/backend/.env"
+          echo "✅ Backend .env configured from ${SECRETS_ENV}"
 
       # --------------------------------------------------------
       # STEP 3: Script permissions
