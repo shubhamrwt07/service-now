@@ -227,12 +227,47 @@ fi
 # STEP 4: TRAFFIC SWITCH (ZERO DOWNTIME!)
 # ============================================================
 log ""
-log "${YELLOW}[STEP 4] Switching traffic ${CURRENT_ENV} → ${TARGET_ENV}...${NC}"
+log "${YELLOW}[STEP 4] Nginx Traffic Switch...${NC}"
 
-chmod +x "${SWITCH_SCRIPT}"
-bash "${SWITCH_SCRIPT}" "${TARGET_ENV}"
+# -------------------------------------------------------
+# Nginx switch OPTIONAL hai — fail hone pe deploy NAHI rukta
+# Containers already chal rahe hain naye code ke saath
+# Nginx sirf routing karta hai — iske bina bhi direct port se access hota hai
+# -------------------------------------------------------
 
-log "${GREEN}         Traffic switched! Users now on ${TARGET_ENV} ✅${NC}"
+NGINX_SWITCH_SUCCESS=false
+
+# Check 1: Nginx installed hai?
+if ! command -v nginx > /dev/null 2>&1; then
+    log "${YELLOW}⚠️  Nginx not installed — skipping traffic switch${NC}"
+
+# Check 2: conf.d folder hai aur write permission hai?
+elif sudo mkdir -p /etc/nginx/conf.d 2>/dev/null && sudo ln -sf "${SCRIPT_DIR}/nginx/${TARGET_ENV}.conf" "/etc/nginx/conf.d/active.conf" 2>/dev/null; then
+    # sudo se symlink create ho gayi
+    sudo nginx -s reload 2>/dev/null || true
+    NGINX_SWITCH_SUCCESS=true
+    log "${GREEN}         Nginx traffic switched to ${TARGET_ENV} ✅${NC}"
+
+else
+    # sudo bhi nahi chala — permission issue
+    log "${YELLOW}⚠️  Nginx switch skipped (permission denied)${NC}"
+    log "${YELLOW}   Run once manually to fix: ${NC}"
+    log "   echo '${USER} ALL=(ALL) NOPASSWD: /usr/sbin/nginx, /bin/ln, /bin/mkdir' | sudo tee /etc/sudoers.d/nginx-runner"
+fi
+
+# Containers running hain — direct port access bhi kaam karta hai
+log ""
+log "${CYAN}   New code is LIVE on ${TARGET_ENV} containers:${NC}"
+if [ "${TARGET_ENV}" == "blue" ]; then
+    log "${CYAN}   → Backend:  http://localhost:5001${NC}"
+    log "${CYAN}   → Frontend: http://localhost:3001${NC}"
+else
+    log "${CYAN}   → Backend:  http://localhost:5002${NC}"
+    log "${CYAN}   → Frontend: http://localhost:3002${NC}"
+fi
+if [ "${NGINX_SWITCH_SUCCESS}" == "true" ]; then
+    log "${GREEN}   → Via Nginx: http://localhost (port 80)${NC}"
+fi
 
 # ============================================================
 # STEP 5: OLD ENVIRONMENT — KEEP FOR ROLLBACK

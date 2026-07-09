@@ -103,13 +103,23 @@ if [ ! -f "${TARGET_CONF}" ]; then
 fi
 
 # -------------------------------------------------------
+# DIRECTORY CREATE (agar pehli baar chal raha hai)
+# -------------------------------------------------------
+# /etc/nginx/conf.d/ exist nahi karta toh create karo
+# mkdir -p = parent directories bhi banao, error mat do agar already exist kare
+if [ ! -d "${NGINX_CONF_DIR}" ]; then
+    echo -e "${YELLOW}📁 Creating ${NGINX_CONF_DIR}...${NC}"
+    mkdir -p "${NGINX_CONF_DIR}" 2>/dev/null || sudo mkdir -p "${NGINX_CONF_DIR}"
+fi
+
+# -------------------------------------------------------
 # SYMLINK UPDATE
 # -------------------------------------------------------
 # ln -sf = symbolic link force create karo
 # -s = symbolic (shortcut)
 # -f = force (purani symlink hogi toh replace karo)
 # Ye ek atomic operation hai — nanosecond mein switch hota hai
-ln -sf "${TARGET_CONF}" "${ACTIVE_CONF}"
+ln -sf "${TARGET_CONF}" "${ACTIVE_CONF}" 2>/dev/null || sudo ln -sf "${TARGET_CONF}" "${ACTIVE_CONF}"
 echo -e "${GREEN}✅ Symlink updated: active.conf → ${TARGET}.conf${NC}"
 
 # -------------------------------------------------------
@@ -134,13 +144,8 @@ fi
 # -------------------------------------------------------
 # NGINX RELOAD — ZERO DOWNTIME!
 # -------------------------------------------------------
-# "nginx -s reload" ≠ nginx restart
-# Reload = nginx master process nayi config load karta hai
-#          aur naye worker processes spawn karta hai
-#          purane workers apni ongoing requests finish karte hain phir band hote hain
-# Result: Zero downtime — koi request drop nahi hoti!
 echo -e "${BLUE}🔄 Reloading nginx (zero downtime)...${NC}"
-nginx -s reload
+nginx -s reload 2>/dev/null || sudo nginx -s reload
 
 echo ""
 echo -e "${GREEN}🚀 Traffic successfully switched to ${TARGET} environment!${NC}"
