@@ -28,7 +28,8 @@ services:
       - NODE_ENV=production
       - DEPLOY_COLOR=green   # Is container ko pata hai wo green hai
     env_file:
-      - ./backend/.env
+      # ABSOLUTE PATH — runner ka working dir kuch bhi ho, ye hamesha kaam karega
+      - /home/shubhamrwt/service-now/secrets/backend.env
     depends_on:
       postgres:
         condition: service_healthy

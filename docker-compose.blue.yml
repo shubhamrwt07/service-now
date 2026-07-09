@@ -26,7 +26,10 @@ services:
       - NODE_ENV=production
       - DEPLOY_COLOR=blue    # App ko pata ho ki wo blue hai (logging ke liye)
     env_file:
-      - ./backend/.env       # Actual secrets yahan se aate hain
+      # ABSOLUTE PATH — runner ka working dir kuch bhi ho, ye hamesha kaam karega
+      # Ye file server pe permanently rakhi hai
+      # Setup: cp /path/to/.env /home/shubhamrwt/service-now/secrets/backend.env
+      - /home/shubhamrwt/service-now/secrets/backend.env
     depends_on:
       postgres:
         condition: service_healthy   # DB healthy ho tabhi backend start ho
