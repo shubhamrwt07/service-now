@@ -6,18 +6,18 @@ import './index.css';
 const API_URL = 'http://localhost:5000/api';
 
 function App() {
-  const [activeView, setActiveView] = useState('migration'); // 'migration' | 'local'
+  const [activeView, setActiveView] = useState('migration');
 
   // Connection & SNOW States
   const [credentials, setCredentials] = useState({ instanceUrl: '', authType: 'Basic', username: '', password: '', token: '', cookie: '' });
   const [tables, setTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState('');
-  
+
   // Table Search & Pagination States
   const [tableSearch, setTableSearch] = useState('');
   const [tablePage, setTablePage] = useState(1);
   const TABLES_PER_PAGE = 50;
-  
+
   // Local DB States
   const [localTablesList, setLocalTablesList] = useState([]);
   const [selectedLocalTable, setSelectedLocalTable] = useState('');
@@ -60,7 +60,7 @@ function App() {
     try {
       const res = await axios.post(`${API_URL}/oauth/token`, { code, instanceUrl });
       const accessToken = res.data.access_token;
-      
+
       setCredentials(prev => ({
         ...prev,
         instanceUrl,
@@ -198,15 +198,15 @@ function App() {
     return data.name || data.short_description || data.number || data.user_name || data.title || data.email || 'N/A';
   };
 
-  const filteredTables = tables.filter(t => 
-    (t.name || '').toLowerCase().includes(tableSearch.toLowerCase()) || 
+  const filteredTables = tables.filter(t =>
+    (t.name || '').toLowerCase().includes(tableSearch.toLowerCase()) ||
     (t.label || '').toLowerCase().includes(tableSearch.toLowerCase())
   );
   const paginatedTables = filteredTables.slice((tablePage - 1) * TABLES_PER_PAGE, tablePage * TABLES_PER_PAGE);
 
   return (
     <div className="app-container" style={{ flexDirection: 'column' }}>
-      
+
       {/* Top Navigation */}
       <div style={{ width: '100%', padding: '16px 24px', background: 'var(--panel-bg)', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '20px', alignItems: 'center', flexShrink: 0 }}>
         <h2 style={{ margin: 0, marginRight: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}><Database size={24} /> Data Hub</h2>
@@ -215,7 +215,7 @@ function App() {
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        
+
         {/* SIDEBAR */}
         <div className="sidebar" style={{ overflowY: 'auto' }}>
           {activeView === 'migration' ? (
@@ -237,12 +237,11 @@ function App() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="form-group">
                   <label>Auth Type</label>
                   <select name="authType" value={credentials.authType} onChange={handleCredentialChange}>
                     <option value="Basic">Basic (Username/Password)</option>
-                    <option value="Bearer">OAuth (Log in with ServiceNow) / Bearer</option>
                     <option value="X-UserToken">X-UserToken (UI Session)</option>
                   </select>
                 </div>
@@ -259,19 +258,6 @@ function App() {
                     </div>
                   </>
                 )}
-
-                {credentials.authType === 'Bearer' && (
-                  <>
-                    <div className="form-group">
-                      <label>Bearer Token</label>
-                      <input type="text" name="token" placeholder="eyJhbGciOi..." value={credentials.token} onChange={handleCredentialChange} />
-                    </div>
-                    <button onClick={handleOAuthLogin} className="btn-secondary" style={{ width: '100%', marginBottom: '10px' }}>
-                      Log in with ServiceNow (SSO)
-                    </button>
-                  </>
-                )}
-
                 {credentials.authType === 'X-UserToken' && (
                   <>
                     <div className="form-group">
@@ -293,13 +279,13 @@ function App() {
               {tables.length > 0 && (
                 <div className="card">
                   <h2>Select Table ({tables.length})</h2>
-                  
+
                   <div className="form-group" style={{ marginBottom: '12px' }}>
-                    <input 
-                      type="text" 
-                      placeholder="Search table name..." 
-                      value={tableSearch} 
-                      onChange={(e) => { setTableSearch(e.target.value); setTablePage(1); }} 
+                    <input
+                      type="text"
+                      placeholder="Search table name..."
+                      value={tableSearch}
+                      onChange={(e) => { setTableSearch(e.target.value); setTablePage(1); }}
                     />
                   </div>
 
@@ -307,7 +293,7 @@ function App() {
                     <ul style={{ listStyle: 'none', padding: '4px', margin: 0, display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '350px', overflowY: 'auto', overflowX: 'hidden' }}>
                       {paginatedTables.length === 0 && <p style={{ color: 'var(--text-secondary)', padding: '8px', fontSize: '0.9rem' }}>No tables match your search.</p>}
                       {paginatedTables.map(t => (
-                        <li 
+                        <li
                           key={t.name}
                           onClick={() => { setSelectedTable(t.name); setPreviewData(null); }}
                           style={{
@@ -332,9 +318,9 @@ function App() {
                     {/* Pagination Controls */}
                     {filteredTables.length > TABLES_PER_PAGE && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', borderTop: '1px solid var(--border-color)', background: 'var(--panel-bg)', gap: '8px' }}>
-                        <button 
-                          className="btn-secondary" 
-                          disabled={tablePage === 1} 
+                        <button
+                          className="btn-secondary"
+                          disabled={tablePage === 1}
                           onClick={() => setTablePage(p => p - 1)}
                           style={{ padding: '6px 10px', fontSize: '0.75rem', whiteSpace: 'nowrap', flex: 1 }}
                         >
@@ -343,9 +329,9 @@ function App() {
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: '500' }}>
                           {tablePage} / {Math.ceil(filteredTables.length / TABLES_PER_PAGE)}
                         </span>
-                        <button 
-                          className="btn-secondary" 
-                          disabled={tablePage * TABLES_PER_PAGE >= filteredTables.length} 
+                        <button
+                          className="btn-secondary"
+                          disabled={tablePage * TABLES_PER_PAGE >= filteredTables.length}
                           onClick={() => setTablePage(p => p + 1)}
                           style={{ padding: '6px 10px', fontSize: '0.75rem', whiteSpace: 'nowrap', flex: 1 }}
                         >
@@ -367,13 +353,13 @@ function App() {
                     <RefreshCcw size={14} />
                   </button>
                 </div>
-                
+
                 {localTablesList.length === 0 ? (
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No tables found.</p>
                 ) : (
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {localTablesList.map(table => (
-                      <li 
+                      <li
                         key={table}
                         onClick={() => onSelectLocalTable(table)}
                         style={{
@@ -484,9 +470,9 @@ function App() {
                       {/* Preview Pagination */}
                       {previewData.length > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', padding: '10px', background: 'var(--bg-color)', borderRadius: '6px' }}>
-                          <button 
-                            className="btn-secondary" 
-                            onClick={() => handlePreview(previewOffset - PAGE_LIMIT)} 
+                          <button
+                            className="btn-secondary"
+                            onClick={() => handlePreview(previewOffset - PAGE_LIMIT)}
                             disabled={previewOffset === 0 || loading}
                             style={{ padding: '6px 12px', width: 'auto' }}
                           >
@@ -495,9 +481,9 @@ function App() {
                           <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                             Showing {previewOffset + 1} to {previewOffset + previewData.length} of {previewTotal || '...'}
                           </span>
-                          <button 
-                            className="btn-secondary" 
-                            onClick={() => handlePreview(previewOffset + PAGE_LIMIT)} 
+                          <button
+                            className="btn-secondary"
+                            onClick={() => handlePreview(previewOffset + PAGE_LIMIT)}
                             disabled={previewData.length < PAGE_LIMIT || loading}
                             style={{ padding: '6px 12px', width: 'auto' }}
                           >
@@ -554,9 +540,9 @@ function App() {
                   {/* Local DB Pagination */}
                   {!loading && localTotal > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', padding: '10px', background: 'var(--bg-color)', borderRadius: '6px' }}>
-                      <button 
-                        className="btn-secondary" 
-                        onClick={() => fetchMigratedData(selectedLocalTable, localOffset - PAGE_LIMIT)} 
+                      <button
+                        className="btn-secondary"
+                        onClick={() => fetchMigratedData(selectedLocalTable, localOffset - PAGE_LIMIT)}
                         disabled={localOffset === 0}
                         style={{ padding: '6px 12px', width: 'auto' }}
                       >
@@ -565,9 +551,9 @@ function App() {
                       <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                         Page {Math.floor(localOffset / PAGE_LIMIT) + 1} of {Math.ceil(localTotal / PAGE_LIMIT) || 1}
                       </span>
-                      <button 
-                        className="btn-secondary" 
-                        onClick={() => fetchMigratedData(selectedLocalTable, localOffset + PAGE_LIMIT)} 
+                      <button
+                        className="btn-secondary"
+                        onClick={() => fetchMigratedData(selectedLocalTable, localOffset + PAGE_LIMIT)}
                         disabled={localOffset + PAGE_LIMIT >= localTotal}
                         style={{ padding: '6px 12px', width: 'auto' }}
                       >
@@ -585,13 +571,13 @@ function App() {
       {/* Record Details Modal */}
       {selectedRecord && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', 
-          backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', 
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center',
           alignItems: 'center', zIndex: 1000
         }} onClick={() => setSelectedRecord(null)}>
           <div style={{
-            background: 'var(--panel-bg)', padding: '24px', borderRadius: '12px', 
-            width: '80%', maxWidth: '800px', maxHeight: '80vh', display: 'flex', 
+            background: 'var(--panel-bg)', padding: '24px', borderRadius: '12px',
+            width: '80%', maxWidth: '800px', maxHeight: '80vh', display: 'flex',
             flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid var(--border-color)'
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
@@ -600,40 +586,39 @@ function App() {
               </h2>
               <button className="btn-secondary" onClick={() => setSelectedRecord(null)} style={{ padding: '6px 12px' }}>Close</button>
             </div>
-            
-            <div style={{ 
-              flex: 1, overflowY: 'auto', background: 'var(--bg-color)', 
-              borderRadius: '6px', border: '1px solid var(--border-color)' 
+
+            <div style={{
+              flex: 1, overflowY: 'auto', background: 'var(--bg-color)',
+              borderRadius: '6px', border: '1px solid var(--border-color)'
             }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                 <tbody>
                   {Object.entries(selectedRecord).map(([key, value]) => {
                     let displayValue = value;
                     let isObject = false;
-                    
+
                     if (typeof value === 'object' && value !== null) {
                       isObject = true;
-                      // ServiceNow often returns references as { link: "...", value: "..." }
                       displayValue = value.display_value || value.value || JSON.stringify(value);
                     }
-                    
+
                     const isEmpty = displayValue === '' || displayValue === null || displayValue === undefined;
 
                     return (
                       <tr key={key} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ 
-                          width: '35%', 
-                          fontWeight: '500', 
-                          color: 'var(--text-secondary)', 
-                          padding: '12px 16px', 
+                        <td style={{
+                          width: '35%',
+                          fontWeight: '500',
+                          color: 'var(--text-secondary)',
+                          padding: '12px 16px',
                           backgroundColor: 'rgba(0,0,0,0.03)',
                           verticalAlign: 'top',
                           wordBreak: 'break-word'
                         }}>
                           {key}
                         </td>
-                        <td style={{ 
-                          padding: '12px 16px', 
+                        <td style={{
+                          padding: '12px 16px',
                           color: isEmpty ? 'var(--text-secondary)' : 'var(--text-primary)',
                           fontStyle: isEmpty ? 'italic' : 'normal',
                           wordBreak: 'break-word',

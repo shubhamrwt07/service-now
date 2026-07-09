@@ -1,21 +1,29 @@
-name: service-now CI/CD
+# ============================================================
+# LEGACY SIMPLE DEPLOY — Single environment (no Blue-Green)
+# ============================================================
+# Ye purana workflow hai — ab staging.yml aur production.yml use karo
+# Is file ko reference ke liye rakha hai
+# 
+# Active workflows:
+#   - .github/workflows/staging.yml    ← staging branch push
+#   - .github/workflows/production.yml ← main branch push (with approval)
+# ============================================================
+
+name: service-now CI/CD (Legacy)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:    # Sirf manually trigger karo is workflow ko
 
 jobs:
   deploy:
     runs-on: self-hosted
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Copy Backend .env
-        run: cp /home/shubhamrwt/service-now/backend/.env backend/.env  
-        
-      - name: Build & Deploy
+        run: cp /home/shubhamrwt/service-now/backend/.env backend/.env
+
+      - name: Build & Deploy (Simple — No Blue-Green)
         run: |
           docker compose -f docker-compose.yml down
           docker compose -f docker-compose.yml up -d --build

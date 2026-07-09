@@ -1,0 +1,107 @@
+# ============================================================
+# BLUE ENVIRONMENT — Docker Compose
+# ============================================================
+# Blue environment tab run hota hai jab:
+# - Green live hai aur naya code blue pe deploy ho raha hai
+# - Ya Blue currently live (traffic serve kar raha) hai
+#
+# PORTS:
+# - Backend: 5001 (green ka 5002 hoga — overlap nahi)
+# - Frontend: 3001 (green ka 3002 hoga)
+# Dono environments ek saath run ho sakte hain bina conflict ke
+# ============================================================
+
+services:
+  # --------------------------------------------------------
+  # BACKEND — Blue Instance
+  # --------------------------------------------------------
+  backend-blue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: service-now-backend-blue   # Unique naam (green se alag)
+    ports:
+      - "5001:5000"    # HOST:CONTAINER — host 5001, container 5000
+    environment:
+      - NODE_ENV=production
+      - DEPLOY_COLOR=blue    # App ko pata ho ki wo blue hai (logging ke liye)
+    env_file:
+      - ./backend/.env       # Actual secrets yahan se aate hain
+    depends_on:
+      postgres:
+        condition: service_healthy   # DB healthy ho tabhi backend start ho
+    networks:
+      - service-now-network
+    restart: unless-stopped          # Crash hone pe automatically restart
+    # Health check — Docker Engine check karta hai container ka status
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 30s    # Har 30 second pe check
+      timeout: 10s     # 10 second mein response nahi aaya toh fail
+      retries: 3       # 3 baar fail hone pe unhealthy mark karo
+      start_period: 40s  # Container start hone ke 40s baad se check shuru
+
+  # --------------------------------------------------------
+  # FRONTEND — Blue Instance
+  # --------------------------------------------------------
+  frontend-blue:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: service-now-frontend-blue
+    ports:
+      - "3001:3005"    # Host 3001, container 3005
+    environment:
+      - DEPLOY_COLOR=blue
+    depends_on:
+      - backend-blue
+    networks:
+      - service-now-network
+    restart: unless-stopped
+
+  # --------------------------------------------------------
+  # POSTGRES — Shared Database
+  # --------------------------------------------------------
+  # IMPORTANT: Database dono environments share karte hain!
+  # Ek hi DB hai — blue aur green dono isse connect karte hain
+  # Is tarah data consistent rehta hai switch ke baad bhi
+  # (DB ka koi Blue/Green nahi hota — sirf app servers ka hota hai)
+  postgres:
+    image: postgres:16-alpine
+    container_name: service-now-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: servicenow_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # Named volume — data container delete hone pe bhi safe rehta hai
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - service-now-network
+    restart: unless-stopped
+    # DB ka health check — psql command se ping karo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d servicenow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ============================================================
+# NETWORK — Containers ek isolated network mein rehte hain
+# ============================================================
+# Bridge network — containers apas mein naam se baat kar sakte hain
+# Example: backend container "postgres" naam se DB access karta hai
+# Bahar se sirf mapped ports accessible hain
+networks:
+  service-now-network:
+    driver: bridge
+
+# ============================================================
+# VOLUMES — Persistent Storage
+# ============================================================
+# Docker volume = data jo container delete hone pe bhi baka rehta hai
+# DB data yahan store hota hai
+volumes:
+  postgres_data:

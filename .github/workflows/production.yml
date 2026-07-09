@@ -1,0 +1,177 @@
+# ============================================================
+# PRODUCTION WORKFLOW — Manual Approval Required
+# ============================================================
+# Ye workflow tab trigger hota hai jab:
+#   - main branch pe push hota hai (production code)
+#   - Ya manually "workflow_dispatch" se run karte hain
+#
+# IMPORTANT DIFFERENCE from staging:
+#   - Yahan "environment: production" set hai
+#   - GitHub pe production environment banao + required reviewers set karo
+#   - Deploy tab hoga jab ek reviewer approve kare
+#   - Ye "human in the loop" hai — accidental deploy se bachata hai
+# ============================================================
+
+name: 🏭 Production Deploy
+
+on:
+  push:
+    branches:
+      - main       # main branch pe push
+  
+  # Manual trigger — GitHub UI se "Run workflow" button
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for deployment'
+        required: true
+        default: 'Regular deployment'
+      force_env:
+        description: 'Force environment (blue/green/auto)'
+        required: false
+        default: 'auto'
+
+jobs:
+  # ===========================================================
+  # JOB 1: Build & Test (Review se pehle)
+  # ===========================================================
+  build-and-test:
+    name: 🔨 Build & Validate
+    runs-on: self-hosted
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Validate Docker Compose Files
+        run: |
+          echo "Validating docker-compose.blue.yml..."
+          docker compose -f docker-compose.blue.yml config > /dev/null && echo "✅ Blue config valid"
+          
+          echo "Validating docker-compose.green.yml..."
+          docker compose -f docker-compose.green.yml config > /dev/null && echo "✅ Green config valid"
+
+      - name: 📋 Deployment Summary
+        run: |
+          echo "═══════════════════════════════════════"
+          echo "  Production Deployment Request"
+          echo "═══════════════════════════════════════"
+          echo "  Branch:  ${GITHUB_REF_NAME}"
+          echo "  Commit:  ${GITHUB_SHA:0:7}"
+          echo "  Author:  ${GITHUB_ACTOR}"
+          echo "  Reason:  ${{ github.event.inputs.reason || 'Push to main' }}"
+          echo "  Time:    $(date)"
+          echo "═══════════════════════════════════════"
+
+  # ===========================================================
+  # JOB 2: MANUAL APPROVAL GATE — Insaan approve kare
+  # ===========================================================
+  # "environment: production" = GitHub environment protection
+  # Setup karo: Settings → Environments → production → Required reviewers
+  # Deploy tab hoga jab reviewer "Approve" kare GitHub UI pe
+  deploy-production:
+    name: 🚀 Deploy to Production
+    needs: build-and-test      # Pehle build-and-test complete honi chahiye
+    runs-on: self-hosted
+    
+    # === MANUAL APPROVAL GATE ===
+    # Ye line hi sab kuch hai — GitHub is environment pe deployers se
+    # confirmation maangta hai before proceeding
+    environment: production
+    
+    steps:
+      # --------------------------------------------------------
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      - name: 🔑 Setup Environment
+        run: |
+          cp /home/shubhamrwt/service-now/backend/.env backend/.env
+          chmod +x deploy.sh health-check.sh nginx/switch.sh
+          echo "✅ Environment ready"
+
+      # --------------------------------------------------------
+      # Deploy with optional force flag
+      # --------------------------------------------------------
+      - name: 🚀 Blue-Green Deploy
+        run: |
+          FORCE_ARG=""
+          if [ "${{ github.event.inputs.force_env }}" == "blue" ]; then
+            FORCE_ARG="--force-blue"
+          elif [ "${{ github.event.inputs.force_env }}" == "green" ]; then
+            FORCE_ARG="--force-green"
+          fi
+          
+          ./deploy.sh ${FORCE_ARG}
+
+      # --------------------------------------------------------
+      - name: ✅ Production Verification
+        run: |
+          echo "=== Production Deployment Verification ==="
+          
+          echo ""
+          echo "--- Active Containers ---"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          
+          echo ""
+          echo "--- Active Environment ---"
+          readlink /etc/nginx/conf.d/active.conf || echo "symlink not found"
+          
+          echo ""
+          echo "--- Production Health ---"
+          curl -sf http://localhost/health | python3 -m json.tool
+          
+          echo ""
+          echo "--- Deployment Color ---"
+          curl -sI http://localhost | grep -i "X-Deploy-Color" || echo "header not found"
+
+      # --------------------------------------------------------
+      # Production rollback information
+      # --------------------------------------------------------
+      - name: 📋 Post-Deploy Info
+        if: success()
+        run: |
+          echo "╔══════════════════════════════════════╗"
+          echo "║  ✅ PRODUCTION DEPLOY SUCCESSFUL!    ║"
+          echo "║                                      ║"
+          echo "║  If issues found, rollback with:     ║"
+          echo "║  ./deploy.sh --rollback              ║"
+          echo "╚══════════════════════════════════════╝"
+          echo ""
+          echo "Deploy details:"
+          echo "  Commit: ${GITHUB_SHA}"
+          echo "  Actor: ${GITHUB_ACTOR}"
+          echo "  Time: $(date)"
+
+      - name: 🔴 Production Deploy Failed
+        if: failure()
+        run: |
+          echo "╔══════════════════════════════════════╗"
+          echo "║  ❌ PRODUCTION DEPLOY FAILED!        ║"
+          echo "║                                      ║"
+          echo "║  Previous env is still LIVE & SAFE!  ║"
+          echo "╚══════════════════════════════════════╝"
+          # Yahan Slack/PagerDuty alert bhejo!
+
+  # ===========================================================
+  # JOB 3: Deploy Log (Always runs)
+  # ===========================================================
+  log-deployment:
+    name: 📝 Log Deployment
+    needs: deploy-production
+    runs-on: self-hosted
+    if: always()   # Success ya failure — ye hamesha chale
+
+    steps:
+      - name: 📝 Record Deployment
+        run: |
+          LOG_FILE="/home/shubhamrwt/service-now/deploy.log"
+          echo "---" >> ${LOG_FILE}
+          echo "Time: $(date)" >> ${LOG_FILE}
+          echo "Branch: ${GITHUB_REF_NAME}" >> ${LOG_FILE}
+          echo "Commit: ${GITHUB_SHA:0:7}" >> ${LOG_FILE}
+          echo "Actor: ${GITHUB_ACTOR}" >> ${LOG_FILE}
+          echo "Status: ${{ needs.deploy-production.result }}" >> ${LOG_FILE}
+          echo "Reason: ${{ github.event.inputs.reason || 'Push to main' }}" >> ${LOG_FILE}
+          echo "---" >> ${LOG_FILE}

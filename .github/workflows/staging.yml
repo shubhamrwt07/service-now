@@ -1,0 +1,106 @@
+# ============================================================
+# STAGING WORKFLOW — Automatic Deploy on staging branch push
+# ============================================================
+# Ye workflow tab trigger hota hai jab:
+#   - staging branch pe koi code push hota hai
+#
+# Flow:
+#   Code Push → Build → Deploy to idle env → Health Check → Switch
+#
+# Staging = testing environment (production jaisa but real users nahi)
+# Yahan pe test karo phir production pe push karo
+# ============================================================
+
+name: 🔵🟢 Staging Deploy
+
+on:
+  push:
+    branches:
+      - staging    # Sirf "staging" branch pe push hone pe trigger
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: self-hosted    # Tumhara apna server runner hai
+
+    # ---- Environment Variables ----
+    # ye sab GitHub Secrets se aate hain
+    # Settings → Secrets → New repository secret
+    env:
+      DEPLOY_ENV: staging
+
+    steps:
+      # --------------------------------------------------------
+      # STEP 1: Code checkout
+      # --------------------------------------------------------
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        # Latest code server pe copy hoga
+
+      # --------------------------------------------------------
+      # STEP 2: Backend .env copy karo
+      # --------------------------------------------------------
+      # .env Git mein nahi hoti (security)
+      # Server pe pehle se save karke rakhte hain
+      - name: 🔑 Setup Backend Environment
+        run: |
+          # Server pe /home/shubhamrwt/service-now/backend/.env pehle se hai
+          # Usse project mein copy karo
+          cp /home/shubhamrwt/service-now/backend/.env backend/.env
+          echo "✅ Backend .env configured"
+
+      # --------------------------------------------------------
+      # STEP 3: Script permissions
+      # --------------------------------------------------------
+      - name: 🔧 Set Script Permissions
+        run: |
+          chmod +x deploy.sh
+          chmod +x health-check.sh
+          chmod +x nginx/switch.sh
+          echo "✅ Scripts are executable"
+
+      # --------------------------------------------------------
+      # STEP 4: Blue-Green Deploy!
+      # --------------------------------------------------------
+      - name: 🚀 Blue-Green Deploy
+        run: |
+          ./deploy.sh
+        # deploy.sh poora kaam karta hai:
+        # - Current env detect karo
+        # - Idle pe deploy karo
+        # - Health check karo
+        # - Traffic switch karo
+
+      # --------------------------------------------------------
+      # STEP 5: Verify deployment
+      # --------------------------------------------------------
+      - name: ✅ Verify Deployment
+        run: |
+          echo "=== Running Containers ==="
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          
+          echo ""
+          echo "=== Nginx Active Config ==="
+          readlink /etc/nginx/conf.d/active.conf || echo "active.conf not set"
+          
+          echo ""
+          echo "=== Health Check ==="
+          curl -f http://localhost/health | python3 -m json.tool || echo "Health check failed"
+
+      # --------------------------------------------------------
+      # STEP 6: Slack/Email notification (optional)
+      # --------------------------------------------------------
+      - name: 📣 Notify on Success
+        if: success()
+        run: |
+          echo "✅ Staging deployment successful at $(date)"
+          echo "Branch: ${GITHUB_REF_NAME}"
+          echo "Commit: ${GITHUB_SHA:0:7}"
+          # Production mein: Slack webhook ya email bhejo
+
+      - name: 🔴 Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Staging deployment FAILED at $(date)"
+          echo "Previous environment is still serving traffic safely"
+          # Production mein: Alert team via Slack/PagerDuty

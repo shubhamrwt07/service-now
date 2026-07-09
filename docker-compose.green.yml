@@ -1,0 +1,99 @@
+# ============================================================
+# GREEN ENVIRONMENT — Docker Compose
+# ============================================================
+# Green environment bilkul Blue jaisa hai — sirf ports alag hain:
+# - Backend: 5002 (blue ka 5001 hai)
+# - Frontend: 3002 (blue ka 3001 hai)
+#
+# Flow:
+# 1. Blue live hai → Green idle hai
+# 2. New code → Green pe deploy hota hai (ye file use hoti hai)
+# 3. Health check pass hota hai
+# 4. Nginx traffic Blue se Green pe switch karta hai
+# 5. Ab Green live hai, Blue idle hai
+# ============================================================
+
+services:
+  # --------------------------------------------------------
+  # BACKEND — Green Instance
+  # --------------------------------------------------------
+  backend-green:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: service-now-backend-green   # "green" naam — blue se alag
+    ports:
+      - "5002:5000"    # HOST 5002, CONTAINER 5000
+    environment:
+      - NODE_ENV=production
+      - DEPLOY_COLOR=green   # Is container ko pata hai wo green hai
+    env_file:
+      - ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - service-now-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # --------------------------------------------------------
+  # FRONTEND — Green Instance
+  # --------------------------------------------------------
+  frontend-green:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: service-now-frontend-green
+    ports:
+      - "3002:3005"    # Host 3002, container 3005
+    environment:
+      - DEPLOY_COLOR=green
+    depends_on:
+      - backend-green
+    networks:
+      - service-now-network
+    restart: unless-stopped
+
+  # --------------------------------------------------------
+  # POSTGRES — SAME database as Blue!
+  # --------------------------------------------------------
+  # Blue aur Green dono ek hi postgres se connect karte hain
+  # Isliye agar Green ka postgres pehle se chal raha hai
+  # toh ye "postgres" service conflict karegi
+  # 
+  # PRODUCTION TIP: Ideally postgres ek alag compose file mein
+  # hona chahiye (infrastructure layer), lekin simplicity ke
+  # liye yahan include kiya hai. "external" ya depends_on se
+  # handle kar sakte hain.
+  postgres:
+    image: postgres:16-alpine
+    container_name: service-now-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: servicenow_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - service-now-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d servicenow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  service-now-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -336,6 +336,41 @@ app.get('/api/data/:tableName', async (req, res) => {
   }
 });
 
+// ============================================================
+// HEALTH CHECK ENDPOINT — PRODUCTION KE LIYE ZAROORI
+// ============================================================
+// Ye endpoint 3 cheezein check karta hai:
+// 1. App running hai (200 response milega)
+// 2. Database connected hai (pool.query chalega)
+// 3. Uptime aur timestamp bhi deta hai (debugging ke liye)
+//
+// deploy.sh aur health-check.sh is endpoint ko ping karte hain
+// Switch se pehle yahan se confirm hota hai ki naya environment healthy hai
+// ============================================================
+app.get('/health', async (req, res) => {
+  try {
+    // Database connection test karo
+    // Agar DB down hai toh ye throw karega aur 503 milega
+    await pool.query('SELECT 1');
+
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),          // Kitne seconds se app chal rahi hai
+      environment: process.env.NODE_ENV || 'production',
+      database: 'connected'
+    });
+  } catch (err) {
+    // DB connection fail — unhealthy
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: err.message
+    });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
