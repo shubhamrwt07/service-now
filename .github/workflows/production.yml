@@ -121,17 +121,39 @@ jobs:
           echo "--- Active Containers ---"
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
           
-          echo ""
-          echo "--- Active Environment ---"
-          readlink /etc/nginx/conf.d/active.conf || echo "symlink not found"
+          # Detect active environment from running containers
+          if docker ps --format '{{.Names}}' | grep -q 'backend-blue'; then
+            ACTIVE_PORT=5001
+            ACTIVE_ENV=blue
+          elif docker ps --format '{{.Names}}' | grep -q 'backend-green'; then
+            ACTIVE_PORT=5002
+            ACTIVE_ENV=green
+          else
+            echo "❌ No backend container running!"
+            exit 1
+          fi
           
           echo ""
-          echo "--- Production Health ---"
-          curl -sf http://localhost/health | python3 -m json.tool
+          echo "--- Active Environment: ${ACTIVE_ENV} (port ${ACTIVE_PORT}) ---"
           
           echo ""
-          echo "--- Deployment Color ---"
-          curl -sI http://localhost | grep -i "X-Deploy-Color" || echo "header not found"
+          echo "--- Production Health (direct port) ---"
+          HEALTH=$(curl -sf --max-time 10 http://localhost:${ACTIVE_PORT}/health || echo "")
+          if [ -z "${HEALTH}" ]; then
+            echo "❌ Health check failed!"
+            exit 1
+          fi
+          echo "${HEALTH}" | python3 -m json.tool
+          echo "✅ Production backend is healthy!"
+          
+          echo ""
+          echo "--- Access URLs ---"
+          echo "Backend:  http://localhost:${ACTIVE_PORT}"
+          if [ "${ACTIVE_ENV}" == "blue" ]; then
+            echo "Frontend: http://localhost:3001"
+          else
+            echo "Frontend: http://localhost:3002"
+          fi
 
       # --------------------------------------------------------
       # Production rollback information

@@ -89,13 +89,48 @@ jobs:
           echo "=== Running Containers ==="
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
           
-          echo ""
-          echo "=== Nginx Active Config ==="
-          readlink /etc/nginx/conf.d/active.conf || echo "active.conf not set"
+          # ---- Detect which environment was just deployed ----
+          # Blue containers chal rahe hain? → port 5001
+          # Green containers chal rahe hain? → port 5002
+          if docker ps --format '{{.Names}}' | grep -q 'backend-blue'; then
+            ACTIVE_PORT=5001
+            ACTIVE_ENV=blue
+          elif docker ps --format '{{.Names}}' | grep -q 'backend-green'; then
+            ACTIVE_PORT=5002
+            ACTIVE_ENV=green
+          else
+            echo "❌ No backend container found!"
+            exit 1
+          fi
           
           echo ""
-          echo "=== Health Check ==="
-          curl -f http://localhost/health | python3 -m json.tool || echo "Health check failed"
+          echo "=== Active Environment ==="
+          echo "Environment: ${ACTIVE_ENV} (port ${ACTIVE_PORT})"
+          
+          # ---- Direct backend health check (port se, nginx bypass) ----
+          # http://localhost/health nahi — wahan nginx chahiye
+          # Seedha container port pe check karo
+          echo ""
+          echo "=== Backend Health Check (direct port) ==="
+          HEALTH_RESPONSE=$(curl -sf --max-time 10 http://localhost:${ACTIVE_PORT}/health || echo "")
+          
+          if [ -z "${HEALTH_RESPONSE}" ]; then
+            echo "❌ Backend health check failed on port ${ACTIVE_PORT}"
+            exit 1
+          fi
+          
+          echo "${HEALTH_RESPONSE}" | python3 -m json.tool
+          echo "✅ Backend is healthy!"
+          
+          echo ""
+          echo "=== Summary ==="
+          echo "✅ Deployment SUCCESSFUL — ${ACTIVE_ENV} environment is live"
+          echo "   Backend:  http://localhost:${ACTIVE_PORT}"
+          if [ "${ACTIVE_ENV}" == "blue" ]; then
+            echo "   Frontend: http://localhost:3001"
+          else
+            echo "   Frontend: http://localhost:3002"
+          fi
 
       # --------------------------------------------------------
       # STEP 6: Slack/Email notification (optional)
